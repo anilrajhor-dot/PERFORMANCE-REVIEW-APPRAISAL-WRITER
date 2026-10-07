@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Appraisal Writer</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#16202e;--mute:#5b6778;--line:#d9e0ea;--acc:#1f5fbf;--acc2:#e8f0fc;--warn:#b45309;--warnbg:#fff4e0;--bad:#b42318;--ok:#067647}
+@media(prefers-color-scheme:dark){:root{--bg:#10151d;--card:#18202b;--ink:#e8edf4;--mute:#9aa7b8;--line:#2b3646;--acc:#6ea4f5;--acc2:#1c2a40;--warn:#f3b45e;--warnbg:#33260f;--bad:#f97066;--ok:#47cd89}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:14px 16px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:18px}
+header p{margin:2px 0 0;color:var(--mute);font-size:12.5px}
+nav{display:flex;gap:6px;overflow-x:auto;padding:10px 12px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:62px;z-index:4}
+nav button{flex:0 0 auto;border:1px solid var(--line);background:var(--bg);color:var(--ink);padding:7px 12px;border-radius:999px;font-size:13px;cursor:pointer}
+nav button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+main{max-width:860px;margin:0 auto;padding:14px 12px 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.card h3{margin:0 0 4px;font-size:15px}
+.hint{color:var(--mute);font-size:12.5px;margin:0 0 10px}
+label{display:block;font-size:12.5px;color:var(--mute);margin:8px 0 3px}
+input,textarea,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:14.5px}
+textarea{min-height:64px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:560px){.row{grid-template-columns:1fr}}
+.btn{border:1px solid var(--acc);background:var(--acc);color:#fff;padding:9px 14px;border-radius:8px;font-size:14px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--acc)}
+.btn.danger{background:transparent;color:var(--bad);border-color:var(--bad)}
+.btn.sm{padding:5px 10px;font-size:12.5px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.item{border:1px solid var(--line);border-radius:10px;padding:10px;margin:10px 0;background:var(--bg)}
+.item .top{display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--mute)}
+.flag{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:6px 10px;margin:6px 0;font-size:13px}
+.good{color:var(--ok);font-size:13px}
+pre.out{white-space:pre-wrap;word-wrap:break-word;font:14px/1.55 inherit;font-family:inherit;margin:0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.cnt{font-size:12.5px;color:var(--mute)}.cnt.over{color:var(--bad);font-weight:600}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--bg);color:var(--ink);padding:7px 14px;font-size:13px;cursor:pointer}
+.seg button.on{background:var(--acc);color:#fff}
+.sample{background:var(--acc2);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:10px}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.show{opacity:1}
+@media print{header,nav,.noprint{display:none!important}.card{border:0}}
+</style>
+</head>
+<body>
+<header><h1>Appraisal Writer</h1><p>Turns your real achievements into a structured appraisal. Works offline. Nothing leaves this device.</p></header>
+<nav id="nav"></nav>
+<main id="main"></main>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+var KEY="appraisalWriter.v1";
+var BLANK={about:{name:"",role:"",company:"",period:"",format:"self",colleague:"",limit:""},
+ ach:[],goals:[],skills:[],chal:[],growth:[],next:[]};
+var S=load();
+var tab="about", mode="detailed", sampleOn=false;
+
+var TABS=[["about","About me"],["ach","Achievements"],["goals","Goals vs targets"],["skills","Skills"],["chal","Challenges"],["growth","Growth"],["next","Next period"],["out","Write-up"],["prompt","Project prompt"]];
+
+var LISTS={
+ ach:{t:"Key achievements (STAR)",hint:"One card per win. Fill what you know; the app flags what is missing instead of inventing it.",add:"Add achievement",
+  f:[["title","Short title","text","e.g. Reduced loan processing time"],["s","Situation","area","What was the context or problem?"],["t","Task","area","What were you responsible for?"],["a","Action","area","What did YOU do? Start with a verb: Led, Built, Introduced"],["r","Result","area","What changed because of it?"],["m","Number / impact","text","e.g. 32% faster, ₹18 lakh saved, 4 days to 2"]]},
+ goals:{t:"Goals met vs targets",hint:"Enter numbers only in Target and Actual (e.g. 120 and 134). % of target is calculated for you.",add:"Add goal",
+  f:[["g","Goal / KPI","text","e.g. New accounts opened"],["target","Target","text","e.g. 120"],["actual","Actual","text","e.g. 134"],["dir","Better when","sel",[["hi","Higher is better"],["lo","Lower is better"]]]]},
+ skills:{t:"Key skills demonstrated",hint:"A skill without evidence is just a claim. Name the moment you used it.",add:"Add skill",
+  f:[["skill","Skill","text","e.g. Stakeholder management"],["ev","Evidence","area","Where did you use it and what happened?"]]},
+ chal:{t:"Challenges overcome",hint:"Problem, what you did, how it ended.",add:"Add challenge",
+  f:[["c","Challenge","area","What went wrong or got hard?"],["how","What you did","area",""],["res","Outcome","area",""]]},
+ growth:{t:"Areas of growth / development",hint:"Honest gaps with a concrete plan read as strength.",add:"Add area",
+  f:[["area","Area to develop","text",""],["plan","Plan / support needed","area","Course, mentor, project, timeline"]]},
+ next:{t:"Goals for next period",hint:"Make each goal measurable.",add:"Add goal",
+  f:[["goal","Goal","area",""],["metric","How it will be measured","text","e.g. 15% growth by Mar 2027"]]}
+};
+
+var HEAD={
+ self:{name:"Self-appraisal",goals:"Goals Met vs Targets",ach:"Key Achievements",skills:"Key Skills Demonstrated",chal:"Challenges Overcome",growth:"Areas of Growth / Development",next:"Goals for Next Period"},
+ f360:{name:"360-degree feedback",goals:"Targets and Results Observed",ach:"Key Contributions Observed",skills:"Strengths Demonstrated",chal:"Challenges Handled",growth:"Areas to Develop",next:"Suggested Focus for Next Period"},
+ mgr:{name:"Response to manager review",goals:"Results Against Targets",ach:"Key Achievements",skills:"Skills Demonstrated",chal:"Challenges Overcome",growth:"Development Areas I Am Working On",next:"Commitments for Next Period"}
+};
+var GENERIC=["hard worker","hard-working","hardworking","team player","go-getter","go getter","self-motivated","detail-oriented","detail oriented","passionate","results-driven","synergy","think outside the box"];
+
+function load(){try{var x=JSON.parse(localStorage.getItem(KEY));if(x&&x.about)return Object.assign(JSON.parse(JSON.stringify(BLANK)),x)}catch(e){}return JSON.parse(JSON.stringify(BLANK))}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function $(id){return document.getElementById(id)}
+function toast(m){var t=$("toast");t.textContent=m;t.className="toast show";setTimeout(function(){t.className="toast"},1600)}
+
+/* ---------- text helpers (never add facts, only tidy what the user wrote) ---------- */
+function tidy(t){
+ t=String(t||"").replace(/\s+/g," ").trim();
+ if(!t)return"";
+ t=t.replace(/^(i have|i've|i had|i am|i'm|i)\s+/i,"").replace(/^(we)\s+/i,"");
+ t=t.replace(/[.;,\s]+$/,"");
+ return t.charAt(0).toUpperCase()+t.slice(1);
+}
+function sent(t){t=tidy(t);return t?t+".":""}
+function num(v){var n=parseFloat(String(v||"").replace(/[,₹$%\s]/g,""));return isFinite(n)?n:null}
+function hasNum(t){return /\d/.test(String(t||""))}
+
+/* ---------- rough-bullet importer ---------- */
+function importBullets(){
+ var lines=$("bul").value.split(/\n+/).map(function(l){return l.replace(/^[\s\-•*·\d.)]+/,"").trim()}).filter(Boolean);
+ if(!lines.length){toast("Paste some bullets first");return}
+ lines.forEach(function(l){
+  var parts=l.split(/\s*(?:->|→|=>|\bresulting in\b|\bresulted in\b|\bwhich led to\b)\s*/i);
+  var nums=(l.match(/[₹$]?\d[\d,.]*\s?(?:%|lakh|lakhs|crore|cr|k|days?|hrs?|hours?|mins?|x)?/gi)||[]).map(function(x){return x.trim()}).join(", ");
+  S.ach.push({title:"",s:"",t:"",a:parts[0]||"",r:parts[1]||"",m:nums});
+ });
+ save();$("bul").value="";toast(lines.length+" added");render();
+}
+
+/* ---------- checks ---------- */
+function flags(){
+ var f=[],a=S.about;
+ if(!a.name)f.push("About me: your name is blank, so the write-up shows a placeholder.");
+ if(!a.role)f.push("About me: role / job title is blank.");
+ if(!a.period)f.push("About me: review period is blank.");
+ if(a.format==="f360"&&!a.colleague)f.push("360 feedback: add the name of the colleague you are writing about.");
+ if(!S.ach.length)f.push("Add at least one achievement.");
+ S.ach.forEach(function(x,i){
+  var n="Achievement "+(i+1)+(x.title?" ("+x.title+")":"");
+  if(!x.a.trim())f.push(n+": no Action. What did you personally do?");
+  if(!x.r.trim())f.push(n+": no Result. What changed because of it?");
+  if(!hasNum(x.m)&&!hasNum(x.r))f.push(n+": no number. Add %, ₹, time or volume if you have one. If you truly have none, leave it.");
+  if(!x.s.trim()&&!x.t.trim())f.push(n+": no Situation or Task, so the context is missing.");
+  if(/\b(was|were|been|being)\s+\w+(ed|en)\b/i.test(x.a))f.push(n+": Action reads passive. Rewrite as 'Led…', 'Built…', 'Introduced…'.");
+ });
+ S.skills.forEach(function(x,i){if(x.skill&&!x.ev.trim())f.push("Skill '"+x.skill+"': no evidence. Add where you used it.")});
+ S.goals.forEach(function(x,i){if(x.g&&(num(x.target)===null||num(x.actual)===null))f.push("Goal '"+x.g+"': Target/Actual are not both numbers, so % of target is not calculated.")});
+ S.growth.forEach(function(x){if(x.area&&!x.plan.trim())f.push("Growth area '"+x.area+"': add a concrete plan.")});
+ S.next.forEach(function(x){if(x.goal&&!x.metric.trim())f.push("Next-period goal '"+tidy(x.goal).slice(0,40)+"': add how it will be measured.")});
+ var all=JSON.stringify(S).toLowerCase();
+ GENERIC.forEach(function(g){if(all.indexOf(g)>-1)f.push("Generic phrase '"+g+"' found. Replace with the specific evidence.")});
+ return f;
+}
+
+/* ---------- generator ---------- */
+function goalLine(x,det){
+ var t=num(x.target),a=num(x.actual),s=tidy(x.g)||"Goal";
+ var txt=s+" — Target: "+(x.target||"n/a")+"; Actual: "+(x.actual||"n/a");
+ if(t!==null&&a!==null&&t!==0){
+  var p=x.dir==="lo"?(t/a*100):(a/t*100);
+  if(a===0&&x.dir==="lo")return txt;
+  var met=p>=100;
+  txt+=" ("+Math.round(p)+"% of target, "+(met?"met":"below target")+")";
+ }
+ return txt;
+}
+function gen(m){
+ var a=S.about,H=HEAD[a.format]||HEAD.self,L=[];
+ var nm=a.name||"[Your Full Name]",role=a.role||"[Your Role]",co=a.company||"[Your Company]",per=a.period||"[Review period]";
+ var who=a.format==="f360"?(a.colleague||"[Colleague name]"):nm;
+ L.push(H.name.toUpperCase());
+ L.push(who+(a.format==="f360"?"":" | "+role+" | "+co)+" | "+per);
+ if(a.format==="f360")L.push("Feedback provided by: "+nm+", "+role+", "+co);
+ L.push("");
+ var det=m==="detailed";
+ function sec(title,rows){if(!rows.length)return;L.push(title.toUpperCase());rows.forEach(function(r){L.push(r)});L.push("")}
+ sec(H.goals,S.goals.filter(function(x){return x.g}).map(function(x){return "• "+goalLine(x)}));
+ var ar=[];
+ S.ach.forEach(function(x,i){
+  if(!(x.title||x.a||x.r))return;
+  if(det){
+   var b=(i+1)+". "+(tidy(x.title)||tidy(x.a).split(" ").slice(0,7).join(" "));
+   if(x.s.trim())b+="\n   Situation: "+sent(x.s);
+   if(x.t.trim())b+="\n   Task: "+sent(x.t);
+   if(x.a.trim())b+="\n   Action: "+sent(x.a);
+   if(x.r.trim())b+="\n   Result: "+sent(x.r);
+   if(x.m.trim())b+="\n   Impact: "+tidy(x.m);
+   ar.push(b);
+  }else{
+   var c="• "+(x.title?tidy(x.title)+": ":"")+tidy(x.a);
+   if(x.r.trim())c+=", resulting in "+tidy(x.r).replace(/^(resulting in|resulted in)\s+/i,"");
+   if(x.m.trim()&&String(x.r).indexOf(x.m.trim())<0)c+=" ["+tidy(x.m)+"]";
+   ar.push(c+".");
+  }
+ });
+ sec(H.ach,ar);
+ sec(H.skills,S.skills.filter(function(x){return x.skill}).map(function(x){return "• "+tidy(x.skill)+(x.ev.trim()?" — "+(det?sent(x.ev):tidy(x.ev)):"")}));
+ sec(H.chal,S.chal.filter(function(x){return x.c||x.how}).map(function(x){
+  return det?"• "+sent(x.c)+(x.how.trim()?" Action: "+sent(x.how):"")+(x.res.trim()?" Outcome: "+sent(x.res):"")
+   :"• "+tidy(x.c)+(x.how.trim()?" → "+tidy(x.how):"")+(x.res.trim()?" → "+tidy(x.res):"")+"."}));
+ sec(H.growth,S.growth.filter(function(x){return x.area}).map(function(x){return "• "+tidy(x.area)+(x.plan.trim()?" — Plan: "+tidy(x.plan):"")+"."}));
+ sec(H.next,S.next.filter(function(x){return x.goal}).map(function(x){return "• "+tidy(x.goal)+(x.metric.trim()?" (Measure: "+tidy(x.metric)+")":"")+"."}));
+ return L.join("\n").replace(/\n+$/,"");
+}
+function fit(text,limit){
+ if(!limit||text.length<=limit)return text;
+ var lines=text.split("\n");
+ // drop trailing bullet lines one at a time until it fits (keeps headings and earlier, higher-priority items)
+ for(var i=lines.length-1;i>3&&lines.join("\n").length>limit;i--){if(/^•/.test(lines[i]))lines.splice(i,1)}
+ return lines.join("\n").replace(/\n{3,}/g,"\n\n").trim();
+}
+
+/* ---------- rendering ---------- */
+function navR(){$("nav").innerHTML=TABS.map(function(t){return '<button data-tab="'+t[0]+'" class="'+(tab===t[0]?"on":"")+'">'+t[1]+'</button>'}).join("")}
+function fieldHTML(path,f,val){
+ var id=' data-p="'+path+'"';
+ var lab="<label>"+esc(f[1])+"</label>";
+ if(f[2]==="area")return lab+"<textarea"+id+' placeholder="'+esc(f[3])+'">'+esc(val)+"</textarea>";
+ if(f[2]==="sel")return lab+"<select"+id+">"+f[3].map(function(o){return'<option value="'+o[0]+'"'+(val===o[0]||(!val&&o[0]==="hi")?" selected":"")+">"+o[1]+"</option>"}).join("")+"</select>";
+ return lab+"<input"+id+' value="'+esc(val)+'" placeholder="'+esc(f[3])+'">';
+}
+function listHTML(k){
+ var d=LISTS[k],h='<div class="card"><h3>'+d.t+'</h3><p class="hint">'+d.hint+"</p>";
+ if(k==="ach")h+='<label>Paste rough bullets (one per line). Use "→" between action and result.</label><textarea id="bul" placeholder="Cut loan TAT from 7 to 4 days → 22% more disbursals&#10;Trained 14 new joiners"></textarea><div class="bar"><button class="btn ghost sm" data-act="bul">Turn bullets into cards</button></div>';
+ S[k].forEach(function(it,i){
+  h+='<div class="item"><div class="top"><span>#'+(i+1)+'</span><button class="btn danger sm" data-act="del" data-k="'+k+'" data-i="'+i+'">Remove</button></div>';
+  if(k==="goals"){
+   h+='<div class="row">'+fieldHTML(k+"."+i+".g",d.f[0],it.g||"")+fieldHTML(k+"."+i+".dir",d.f[3],it.dir)+"</div>";
+   h+='<div class="row">'+fieldHTML(k+"."+i+".target",d.f[1],it.target||"")+fieldHTML(k+"."+i+".actual",d.f[2],it.actual||"")+"</div>";
+  }else d.f.forEach(function(f){h+=fieldHTML(k+"."+i+"."+f[0],f,it[f[0]]||"")});
+  h+="</div>";
+ });
+ h+='<div class="bar"><button class="btn" data-act="add" data-k="'+k+'">+ '+d.add+"</button></div></div>";
+ return h;
+}
+function aboutHTML(){
+ var a=S.about;
+ return '<div class="card"><h3>About me</h3><p class="hint">Left blank on purpose. Fill in your own details. Saved only in this browser.</p>'+
+ '<div class="row"><div><label>My name is</label><input data-p="about.name" value="'+esc(a.name)+'" placeholder="Your full name"></div><div><label>My role / job title is</label><input data-p="about.role" value="'+esc(a.role)+'" placeholder="Your role"></div></div>'+
+ '<div class="row"><div><label>My company is</label><input data-p="about.company" value="'+esc(a.company)+'" placeholder="Your company"></div><div><label>Review period</label><input data-p="about.period" value="'+esc(a.period)+'" placeholder="e.g. Apr 2026 – Sep 2026"></div></div>'+
+ '<div class="row"><div><label>Review format required</label><select data-p="about.format" data-re="1"><option value="self"'+(a.format==="self"?" selected":"")+'>Self-appraisal form</option><option value="f360"'+(a.format==="f360"?" selected":"")+'>360-degree feedback (about a colleague)</option><option value="mgr"'+(a.format==="mgr"?" selected":"")+'>Response to manager review</option></select></div>'+
+ '<div><label>Character limit for concise version (optional)</label><input data-p="about.limit" inputmode="numeric" value="'+esc(a.limit)+'" placeholder="e.g. 1500"></div></div>'+
+ (a.format==="f360"?'<label>Colleague you are writing about</label><input data-p="about.colleague" value="'+esc(a.colleague)+'" placeholder="Colleague name">':"")+
+ '<div class="bar noprint"><button class="btn ghost sm" data-act="sample">Load fictional sample</button><button class="btn ghost sm" data-act="export">Export backup (.json)</button><label class="btn ghost sm" style="margin:0">Import backup<input type="file" id="imp" accept=".json" style="display:none"></label><button class="btn danger sm" data-act="clear">Clear everything</button></div></div>';
+}
+function outHTML(){
+ var fl=flags(),limit=parseInt(S.about.limit,10)||0;
+ var txt=mode==="concise"?fit(gen("concise"),limit):gen("detailed");
+ var over=limit&&mode==="concise"&&txt.length>limit;
+ var h='<div class="card"><div class="bar" style="margin:0 0 10px"><div class="seg"><button data-mode="concise" class="'+(mode==="concise"?"on":"")+'">Concise</button><button data-mode="detailed" class="'+(mode==="detailed"?"on":"")+'">Detailed</button></div>'+
+  '<span class="cnt'+(over?" over":"")+'">'+txt.length+" characters"+(limit&&mode==="concise"?" / "+limit:"")+"</span></div>"+
+  (sampleOn?'<div class="sample">This is the fictional sample. Clear it before writing your own.</div>':"")+
+  '<pre class="out" id="outtxt">'+esc(txt)+'</pre><div class="bar noprint"><button class="btn" data-act="copy">Copy</button><button class="btn ghost" data-act="txt">Download .txt</button><button class="btn ghost" data-act="doc">Download Word (.doc)</button><button class="btn ghost" data-act="print">Print</button></div></div>';
+ h+='<div class="card"><h3>Before you submit</h3>'+(fl.length?fl.map(function(x){return'<div class="flag">'+esc(x)+"</div>"}).join(""):'<div class="good">No gaps found. Every achievement has an action, a result and a number.</div>')+"</div>";
+ return h;
+}
+var PROMPT=null;
+function promptHTML(){
+ return '<div class="card"><h3>Claude Project instructions</h3><p class="hint">Paste into a Claude Project to get AI-written drafts using the same rules. The About me block is blank for you to fill.</p><pre class="out" id="ptxt">'+esc(PROMPT)+'</pre><div class="bar"><button class="btn" data-act="copyp">Copy instructions</button></div></div>';
+}
+function render(){
+ navR();var m=$("main");
+ if(tab==="about")m.innerHTML=aboutHTML();
+ else if(LISTS[tab])m.innerHTML=listHTML(tab);
+ else if(tab==="out")m.innerHTML=outHTML();
+ else m.innerHTML=promptHTML();
+ var imp=$("imp");if(imp)imp.onchange=function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{var x=JSON.parse(r.result);if(!x.about)throw 0;S=Object.assign(JSON.parse(JSON.stringify(BLANK)),x);save();sampleOn=false;toast("Imported");render()}catch(err){toast("Not a valid backup")}};r.readAsText(f)};
+}
+
+/* ---------- events ---------- */
+document.addEventListener("input",function(e){
+ var p=e.target.getAttribute&&e.target.getAttribute("data-p");if(!p)return;
+ var s=p.split("."),o=S;for(var i=0;i<s.length-1;i++)o=o[s[i]];o[s[s.length-1]]=e.target.value;save();
+ if(e.target.getAttribute("data-re"))render();
+});
+document.addEventListener("click",function(e){
+ var b=e.target.closest("button");if(!b)return;
+ if(b.dataset.tab){tab=b.dataset.tab;render();window.scrollTo(0,0);return}
+ if(b.dataset.mode){mode=b.dataset.mode;render();return}
+ var act=b.dataset.act;if(!act)return;
+ if(act==="add"){var k=b.dataset.k,o={};LISTS[k].f.forEach(function(f){o[f[0]]=f[2]==="sel"?"hi":""});S[k].push(o);save();render()}
+ else if(act==="del"){S[b.dataset.k].splice(+b.dataset.i,1);save();render()}
+ else if(act==="bul")importBullets();
+ else if(act==="copy"||act==="copyp"){copy($(act==="copy"?"outtxt":"ptxt").textContent)}
+ else if(act==="txt")dl(fname("txt"),$("outtxt").textContent,"text/plain");
+ else if(act==="doc"){var body=esc($("outtxt").textContent).replace(/\n/g,"<br>");dl(fname("doc"),'<html><head><meta charset="utf-8"></head><body style="font-family:Calibri,Arial;font-size:11pt">'+body+"</body></html>","application/msword")}
+ else if(act==="print")window.print();
+ else if(act==="export")dl("appraisal-backup.json",JSON.stringify(S,null,1),"application/json");
+ else if(act==="clear"){if(confirm("Delete all entries on this device?")){S=JSON.parse(JSON.stringify(BLANK));sampleOn=false;save();render()}}
+ else if(act==="sample")sample();
+});
+function fname(x){return "appraisal-"+(mode)+"."+x}
+function copy(t){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){toast("Copied")},function(){fb(t)})}else fb(t)}
+function fb(t){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");toast("Copied")}catch(e){toast("Select and copy manually")}document.body.removeChild(a)}
+function dl(n,t,m){var u=URL.createObjectURL(new Blob([t],{type:m}));var a=document.createElement("a");a.href=u;a.download=n;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(u)},1000)}
+function sample(){
+ if(!confirm("Load fictional sample data? This replaces what you have entered."))return;
+ S={about:{name:"Sample Employee",role:"Branch Credit Officer",company:"Sample Co. Ltd",period:"Apr 2026 – Sep 2026",format:"self",colleague:"",limit:"900"},
+  ach:[{title:"Faster loan processing",s:"Loan turnaround was slowing disbursals",t:"Cut turnaround time for retail loans",a:"Introduced a one-page document checklist and a daily pending-file review",r:"Turnaround fell and more files reached disbursal",m:"7 days to 4 days"},
+       {title:"Onboarding",s:"",t:"",a:"Trained 14 new joiners",r:"All 14 handled files independently by month two",m:"14 joiners"}],
+  goals:[{g:"New accounts opened",target:"120",actual:"134",dir:"hi"},{g:"Average turnaround (days)",target:"5",actual:"4",dir:"lo"}],
+  skills:[{skill:"Credit appraisal",ev:"Reviewed 60+ proposals and flagged repayment risks before sanction"}],
+  chal:[{c:"Staff shortage in Q2",how:"Reallocated files by complexity",res:"No month-end backlog"}],
+  growth:[{area:"Data analysis in Excel",plan:"Complete an advanced Excel course by Dec 2026"}],
+  next:[{goal:"Bring turnaround to 3 days",metric:"Monthly average, from Oct 2026"}]};
+ sampleOn=true;save();tab="out";mode="detailed";render();
+}
+
+PROMPT=`PERFORMANCE REVIEW & APPRAISAL WRITER
+Claude Project that drafts self-appraisals, 360-degree feedback, and manager review responses using your real achievements.
+
+ABOUT ME
+(Fill in your details)
+My name is:
+My role / job title is:
+My company is:
+Review period:
+My key achievements / KPIs this period:
+Review format required:
+
+WHAT I NEED FROM YOU
+(This section stays as-is — do not change)
+Whenever I paste my achievements, goals, or KPI data as rough bullet points, you will turn them into a polished, professional appraisal write-up ready to submit.
+
+YOUR JOB — STEP BY STEP
+1. Structure Each Achievement
+- Use the STAR framework (Situation – Task – Action – Result) where relevant
+- Quantify the impact wherever a number is available (%, ₹, time saved, etc.)
+2. Organize by Category
+- Goals Met vs Targets
+- Key Skills Demonstrated
+- Challenges Overcome
+- Areas of Growth / Development
+- Goals for Next Period
+3. Match the Right Tone
+- Confident and results-oriented — never boastful or exaggerated
+- Use active voice ("Led the redesign," not "The redesign was led by me")
+4. Offer Two Lengths
+- A concise version (for forms with character limits)
+- A detailed version (for full write-ups or manager discussions)
+5. Only Use What I Give You
+- Never invent achievements, numbers, or projects I haven't mentioned
+- Ask me for specifics if my input is too vague to write convincingly
+
+STYLE & CONSISTENCY RULES
+(This section stays as-is)
+- Professional, results-oriented language throughout
+- Avoid generic phrases like "hard worker" or "team player" without evidence
+- Active voice, specific to my industry and role
+- Every achievement should answer: What did I do, and what changed because of it?
+- No fabricated facts — flag if more detail is needed from me`;
+
+render();
+</script>
+</body>
+</html>
