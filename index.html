@@ -41,13 +41,14 @@ pre.out{white-space:pre-wrap;word-wrap:break-word;font:14px/1.55 inherit;font-fa
 .sample{background:var(--acc2);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:10px}
 .toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
 .toast.show{opacity:1}
-@media print{header,nav,.noprint{display:none!important}.card{border:0}}
+@media print{header,nav,.noprint{display:none!important}.card{border:0}footer{color:#555!important}}
 </style>
 </head>
 <body>
-<header><h1>Appraisal Writer</h1><p>Turns your real achievements into a structured appraisal. Works offline. Nothing leaves this device.</p></header>
+<header><h1>Appraisal Writer</h1><p>Turns your real achievements into a structured appraisal. Works offline. Nothing leaves this device.</p><p><strong>Developed by Anil Sharma</strong>, Former General Manager, Central Bank of India</p></header>
 <nav id="nav"></nav>
 <main id="main"></main>
+<footer style="text-align:center;color:var(--mute);font-size:12.5px;padding:0 12px 40px">Developed by Anil Sharma, Former General Manager, Central Bank of India</footer>
 <div class="toast" id="toast"></div>
 
 <script>
